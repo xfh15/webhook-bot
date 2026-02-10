@@ -20,7 +20,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 3000
 Key `.env` settings:
 
 - `CHATWOOT_BASE_URL`: Your Chatwoot base URL, e.g. `http://localhost:3000`
-- `CHATWOOT_API_TOKEN`: Agent bot API token
+- `CHATWOOT_API_TOKEN`: Optional. If your public API requires it.
 - `OPENAI_API_KEY`: API key for your OpenAI-compatible provider
 - `OPENAI_BASE_URL`: Base URL for the provider
 - `OPENAI_MODEL`: Chat completion model

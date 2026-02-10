@@ -6,15 +6,16 @@ from .config import Settings
 
 
 def _build_headers(settings: Settings) -> dict:
-    return {
-        "api_access_token": settings.chatwoot_api_token,
-        "Content-Type": "application/json",
-    }
+    headers = {"Content-Type": "application/json"}
+    if settings.chatwoot_api_token:
+        headers["api_access_token"] = settings.chatwoot_api_token
+    return headers
 
 
-async def list_messages(
+async def list_messages_public(
     settings: Settings,
-    account_id: int,
+    inbox_identifier: str,
+    contact_identifier: str,
     conversation_id: int,
     limit: int,
 ) -> list[dict]:
@@ -22,7 +23,10 @@ async def list_messages(
         return []
 
     timeout = httpx.Timeout(settings.request_timeout_seconds)
-    url = f"/api/v1/accounts/{account_id}/conversations/{conversation_id}/messages"
+    url = (
+        f"/public/api/v1/inboxes/{inbox_identifier}/contacts/"
+        f"{contact_identifier}/conversations/{conversation_id}/messages"
+    )
     params = {"limit": limit}
 
     async with httpx.AsyncClient(base_url=settings.chatwoot_base_url, timeout=timeout) as client:
@@ -33,13 +37,17 @@ async def list_messages(
     return data.get("payload", [])
 
 
-async def create_message(
+async def create_message_public(
     settings: Settings,
-    account_id: int,
+    inbox_identifier: str,
+    contact_identifier: str,
     conversation_id: int,
     content: str,
 ) -> None:
-    url = f"/api/v1/accounts/{account_id}/conversations/{conversation_id}/messages"
+    url = (
+        f"/public/api/v1/inboxes/{inbox_identifier}/contacts/"
+        f"{contact_identifier}/conversations/{conversation_id}/messages"
+    )
     payload = {
         "content": content,
         "message_type": "outgoing",
