@@ -7,7 +7,7 @@ from typing import Any
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 
-from .chatwoot import create_message_public, list_messages_public
+from .chatwoot import create_message, list_messages
 from .config import load_settings
 from .openai_client import generate_reply
 from .prompting import load_system_prompt
@@ -54,54 +54,21 @@ def _extract_content(payload: dict) -> str:
     return (message.get("content") or "").strip()
 
 
+def _extract_account_id(payload: dict) -> int | None:
+    account = payload.get("account") or {}
+    if isinstance(account.get("id"), int):
+        return account.get("id")
+    if isinstance(payload.get("account_id"), int):
+        return payload.get("account_id")
+    return None
+
+
 def _extract_conversation_id(payload: dict) -> int | None:
     conversation = payload.get("conversation") or {}
     if isinstance(conversation.get("id"), int):
         return conversation.get("id")
     if isinstance(payload.get("conversation_id"), int):
         return payload.get("conversation_id")
-    return None
-
-
-def _extract_inbox_identifier(payload: dict) -> str | None:
-    inbox = payload.get("inbox") or {}
-    if isinstance(inbox.get("identifier"), str):
-        return inbox.get("identifier")
-    inbox_id = inbox.get("id")
-    if isinstance(inbox_id, int):
-        return str(inbox_id)
-    conversation = payload.get("conversation") or {}
-    inbox = conversation.get("inbox") or {}
-    if isinstance(inbox.get("identifier"), str):
-        return inbox.get("identifier")
-    inbox_id = conversation.get("inbox_id")
-    if isinstance(inbox_id, int):
-        return str(inbox_id)
-    settings = load_settings()
-    if settings.chatwoot_inbox_identifier:
-        return settings.chatwoot_inbox_identifier
-    return None
-
-
-def _extract_contact_identifier(payload: dict) -> str | None:
-    contact = payload.get("contact") or {}
-    if isinstance(contact.get("identifier"), str):
-        return contact.get("identifier")
-    message = payload.get("message") or {}
-    contact = message.get("contact") or {}
-    if isinstance(contact.get("identifier"), str):
-        return contact.get("identifier")
-    sender = payload.get("sender") or {}
-    if isinstance(sender.get("identifier"), str):
-        return sender.get("identifier")
-    conversation = payload.get("conversation") or {}
-    contact_inbox = conversation.get("contact_inbox") or {}
-    if isinstance(contact_inbox.get("source_id"), str):
-        return contact_inbox.get("source_id")
-    message = (conversation.get("messages") or [{}])[0] if isinstance(conversation.get("messages"), list) else {}
-    contact_inbox = (message.get("conversation") or {}).get("contact_inbox") or {}
-    if isinstance(contact_inbox.get("source_id"), str):
-        return contact_inbox.get("source_id")
     return None
 
 
@@ -173,14 +140,11 @@ async def chatwoot_webhook(request: Request) -> dict[str, Any]:
     if not content:
         return {"ignored": True, "reason": "empty_content"}
 
-    inbox_identifier = _extract_inbox_identifier(payload)
+    account_id = _extract_account_id(payload)
     conversation_id = _extract_conversation_id(payload)
-    contact_identifier = _extract_contact_identifier(payload)
     missing = []
-    if inbox_identifier is None:
-        missing.append("inbox_identifier")
-    if contact_identifier is None:
-        missing.append("contact_identifier")
+    if account_id is None:
+        missing.append("account_id")
     if conversation_id is None:
         missing.append("conversation_id")
     if missing:
@@ -188,9 +152,7 @@ async def chatwoot_webhook(request: Request) -> dict[str, Any]:
 
     settings = load_settings()
 
-    history = await list_messages_public(
-        settings, inbox_identifier, contact_identifier, conversation_id, settings.history_messages
-    )
+    history = await list_messages(settings, account_id, conversation_id, settings.history_messages)
     llm_messages = [{"role": "system", "content": load_system_prompt(settings)}]
     if settings.rag_enabled:
         rag = await retrieve_context(settings, content)
@@ -204,6 +166,6 @@ async def chatwoot_webhook(request: Request) -> dict[str, Any]:
         tools, tool_handlers = load_tools(settings)
 
     reply = await generate_reply(settings, llm_messages, tools=tools, tool_handlers=tool_handlers)
-    await create_message_public(settings, inbox_identifier, contact_identifier, conversation_id, reply)
+    await create_message(settings, account_id, conversation_id, reply)
 
     return {"ok": True}

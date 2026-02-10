@@ -12,8 +12,7 @@ def _get_env(name: str, default: str | None = None, required: bool = False) -> s
 @dataclass(frozen=True)
 class Settings:
     chatwoot_base_url: str
-    chatwoot_api_token: str | None
-    chatwoot_inbox_identifier: str | None
+    chatwoot_api_token: str
     openai_api_key: str
     openai_base_url: str
     openai_model: str
@@ -36,8 +35,7 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         chatwoot_base_url=_get_env("CHATWOOT_BASE_URL", "http://localhost:3000", required=True),
-        chatwoot_api_token=_get_env("CHATWOOT_API_TOKEN", None),
-        chatwoot_inbox_identifier=_get_env("CHATWOOT_INBOX_IDENTIFIER", None),
+        chatwoot_api_token=_get_env("CHATWOOT_API_TOKEN", required=True),
         openai_api_key=_get_env("OPENAI_API_KEY", required=True),
         openai_base_url=_get_env("OPENAI_BASE_URL", "https://openrouter.ai/api/v1"),
         openai_model=_get_env("OPENAI_MODEL", "openai/gpt-4o-mini"),
