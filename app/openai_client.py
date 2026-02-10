@@ -26,7 +26,13 @@ async def _chat_completion(
     timeout = httpx.Timeout(settings.request_timeout_seconds)
     async with httpx.AsyncClient(base_url=settings.openai_base_url, timeout=timeout) as client:
         response = await client.post("/chat/completions", headers=_headers(settings), json=payload)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            details = response.text.strip()
+            raise RuntimeError(
+                f"Chat completion request failed ({response.status_code} {response.reason_phrase}): {details}"
+            ) from exc
         return response.json()
 
 
@@ -100,7 +106,13 @@ async def embed_texts(settings: Settings, texts: list[str]) -> list[list[float]]
 
     async with httpx.AsyncClient(base_url=settings.openai_base_url, timeout=timeout) as client:
         response = await client.post("/embeddings", headers=_headers(settings), json=payload)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            details = response.text.strip()
+            raise RuntimeError(
+                f"Embedding request failed ({response.status_code} {response.reason_phrase}): {details}"
+            ) from exc
         data = response.json()
 
     items = data.get("data") or []
