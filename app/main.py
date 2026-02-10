@@ -128,6 +128,15 @@ async def health() -> dict[str, str]:
 async def chatwoot_webhook(request: Request) -> dict[str, Any]:
     payload = await request.json()
     logger.info("Webhook event received: %s", payload.get("event"))
+    logger.debug(
+        "payload keys=%s inbox=%s contact=%s conversation=%s message=%s sender=%s",
+        list(payload.keys()),
+        payload.get("inbox"),
+        payload.get("contact"),
+        payload.get("conversation"),
+        payload.get("message"),
+        payload.get("sender"),
+    )
 
     if payload.get("event") != "message_created":
         return {"ignored": True, "reason": "unsupported_event"}
@@ -148,8 +157,15 @@ async def chatwoot_webhook(request: Request) -> dict[str, Any]:
     inbox_identifier = _extract_inbox_identifier(payload)
     conversation_id = _extract_conversation_id(payload)
     contact_identifier = _extract_contact_identifier(payload)
-    if inbox_identifier is None or contact_identifier is None or conversation_id is None:
-        raise HTTPException(status_code=400, detail="Missing inbox/contact/conversation identifiers")
+    missing = []
+    if inbox_identifier is None:
+        missing.append("inbox_identifier")
+    if contact_identifier is None:
+        missing.append("contact_identifier")
+    if conversation_id is None:
+        missing.append("conversation_id")
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing identifiers: {', '.join(missing)}")
 
     settings = load_settings()
 
