@@ -71,6 +71,9 @@ def _extract_inbox_identifier(payload: dict) -> str | None:
     inbox = conversation.get("inbox") or {}
     if isinstance(inbox.get("identifier"), str):
         return inbox.get("identifier")
+    settings = load_settings()
+    if settings.chatwoot_inbox_identifier:
+        return settings.chatwoot_inbox_identifier
     return None
 
 
@@ -85,6 +88,14 @@ def _extract_contact_identifier(payload: dict) -> str | None:
     sender = payload.get("sender") or {}
     if isinstance(sender.get("identifier"), str):
         return sender.get("identifier")
+    conversation = payload.get("conversation") or {}
+    contact_inbox = conversation.get("contact_inbox") or {}
+    if isinstance(contact_inbox.get("source_id"), str):
+        return contact_inbox.get("source_id")
+    message = (conversation.get("messages") or [{}])[0] if isinstance(conversation.get("messages"), list) else {}
+    contact_inbox = (message.get("conversation") or {}).get("contact_inbox") or {}
+    if isinstance(contact_inbox.get("source_id"), str):
+        return contact_inbox.get("source_id")
     return None
 
 

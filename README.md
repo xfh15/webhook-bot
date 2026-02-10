@@ -21,6 +21,7 @@ Key `.env` settings:
 
 - `CHATWOOT_BASE_URL`: Your Chatwoot base URL, e.g. `http://localhost:3000`
 - `CHATWOOT_API_TOKEN`: Optional. If your public API requires it.
+- `CHATWOOT_INBOX_IDENTIFIER`: Required for public messages API if webhook payload doesn't include `inbox.identifier`.
 - `OPENAI_API_KEY`: API key for your OpenAI-compatible provider
 - `OPENAI_BASE_URL`: Base URL for the provider
 - `OPENAI_MODEL`: Chat completion model
