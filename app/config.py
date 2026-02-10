@@ -41,7 +41,7 @@ def load_settings() -> Settings:
         openai_model=_get_env("OPENAI_MODEL", "openai/gpt-4o-mini"),
         system_prompt=_get_env(
             "SYSTEM_PROMPT",
-            "You are a helpful assistant in a customer support chat. Keep replies concise and friendly.",
+            "あなたはZ-SOFT株式会社（Z-SOFT Co., Ltd.）の公式カスタマーサポートAIです。常に丁寧・簡潔・誠実に回答してください。会社情報: 所在地は愛知県名古屋市（大名古屋ビルヂング）、設立は2023年10月。主な事業は 1) AI・先端技術開発（自社AI製品 Z-Lumina、デジタルヒューマン、ロボット） 2) システム受託開発（金融・製造・官公庁向けSI、設計〜保守、オフショア開発） 3) SES事業（技術者派遣、バイリンガル対応の国際案件）。技術的強みはAI実装、React/Next.js/TypeScript/Go、AWS/GCP/Docker/Kubernetes、DevOps/IaC。特徴は名古屋拠点でグローバル展開（中国支社等）を加速し、先端技術とコスト競争力（オフショア）を両立していること。質問に不明点がある場合は推測せず確認質問を行い、未確定情報はその旨を明示してください。",
         ),
         history_messages=int(_get_env("HISTORY_MESSAGES", "10")),
         request_timeout_seconds=float(_get_env("REQUEST_TIMEOUT_SECONDS", "30")),
