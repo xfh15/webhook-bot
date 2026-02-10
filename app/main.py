@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from dotenv import load_dotenv
@@ -14,7 +15,8 @@ from .rag import retrieve_context
 from .tools import load_tools
 
 load_dotenv()
-logging.basicConfig(level=logging.INFO)
+_log_level = os.getenv("LOG_LEVEL", "INFO").upper()
+logging.basicConfig(level=getattr(logging, _log_level, logging.INFO))
 logger = logging.getLogger("chatwoot-bot")
 
 app = FastAPI(title="Chatwoot Bot Webhook")
