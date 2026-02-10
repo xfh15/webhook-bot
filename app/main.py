@@ -67,10 +67,16 @@ def _extract_inbox_identifier(payload: dict) -> str | None:
     inbox = payload.get("inbox") or {}
     if isinstance(inbox.get("identifier"), str):
         return inbox.get("identifier")
+    inbox_id = inbox.get("id")
+    if isinstance(inbox_id, int):
+        return str(inbox_id)
     conversation = payload.get("conversation") or {}
     inbox = conversation.get("inbox") or {}
     if isinstance(inbox.get("identifier"), str):
         return inbox.get("identifier")
+    inbox_id = conversation.get("inbox_id")
+    if isinstance(inbox_id, int):
+        return str(inbox_id)
     settings = load_settings()
     if settings.chatwoot_inbox_identifier:
         return settings.chatwoot_inbox_identifier
