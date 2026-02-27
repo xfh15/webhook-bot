@@ -33,7 +33,16 @@ async def _chat_completion(
             raise RuntimeError(
                 f"Chat completion request failed ({response.status_code} {response.reason_phrase}): {details}"
             ) from exc
-        return response.json()
+        content_type = response.headers.get("content-type", "")
+        body_text = response.text or ""
+        try:
+            return response.json()
+        except ValueError as exc:
+            preview = body_text.strip().replace("\n", " ")[:300]
+            raise RuntimeError(
+                "Chat completion returned non-JSON response "
+                f"(status={response.status_code}, content_type={content_type!r}, body_preview={preview!r})"
+            ) from exc
 
 
 async def generate_reply(
@@ -49,6 +58,7 @@ async def generate_reply(
             "model": settings.openai_model,
             "messages": messages,
             "temperature": 0.7,
+            "stream": False,
         }
         if tools:
             payload["tools"] = tools
