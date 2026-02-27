@@ -55,6 +55,16 @@ You can either set `SYSTEM_PROMPT` in `.env` or point to a file:
 SYSTEM_PROMPT_PATH=./system_prompt.txt
 ```
 
+You can also append local knowledge base content directly into the system prompt:
+
+```
+KNOWLEDGE_PATH=knowledge.md
+DEFAULT_RESPONSE_LANGUAGE=ja
+```
+
+- `KNOWLEDGE_PATH`: Path to a markdown/text knowledge file. Its full content is appended to the prompt.
+- `DEFAULT_RESPONSE_LANGUAGE`: Fallback response language when user language cannot be identified (default: `ja`).
+
 ## Tools / Function Calling (Configurable)
 
 Enable tools and optionally provide a `tools.json` config.
