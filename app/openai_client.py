@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 import json
+from typing import Any
 
 from .config import Settings
 
@@ -17,6 +18,88 @@ def _tool_choice(settings: Settings) -> str | dict | None:
     if settings.tool_choice in {"auto", "none"}:
         return settings.tool_choice
     return {"type": "function", "function": {"name": settings.tool_choice}}
+
+
+def _parse_sse_chat_completion(body_text: str) -> dict:
+    choice_states: dict[int, dict[str, Any]] = {}
+    first_chunk: dict[str, Any] | None = None
+
+    for raw_line in body_text.splitlines():
+        line = raw_line.strip()
+        if not line.startswith("data:"):
+            continue
+        payload = line[5:].strip()
+        if not payload:
+            continue
+        if payload == "[DONE]":
+            break
+
+        chunk = json.loads(payload)
+        if first_chunk is None:
+            first_chunk = chunk
+
+        for choice in chunk.get("choices") or []:
+            idx = int(choice.get("index", 0))
+            state = choice_states.setdefault(
+                idx,
+                {
+                    "message": {"role": "assistant", "content": ""},
+                    "tool_calls": {},
+                    "finish_reason": None,
+                },
+            )
+
+            delta = choice.get("delta") or {}
+            if isinstance(delta.get("role"), str):
+                state["message"]["role"] = delta["role"]
+            if isinstance(delta.get("content"), str):
+                state["message"]["content"] += delta["content"]
+
+            for tc in delta.get("tool_calls") or []:
+                tc_idx = int(tc.get("index", 0))
+                tc_state = state["tool_calls"].setdefault(
+                    tc_idx,
+                    {"type": "function", "id": "", "function": {"name": "", "arguments": ""}},
+                )
+                if isinstance(tc.get("id"), str):
+                    tc_state["id"] = tc["id"]
+                if isinstance(tc.get("type"), str):
+                    tc_state["type"] = tc["type"]
+
+                fn = tc.get("function") or {}
+                if isinstance(fn.get("name"), str):
+                    tc_state["function"]["name"] = fn["name"]
+                if isinstance(fn.get("arguments"), str):
+                    tc_state["function"]["arguments"] += fn["arguments"]
+
+            if choice.get("finish_reason") is not None:
+                state["finish_reason"] = choice.get("finish_reason")
+
+    if first_chunk is None:
+        raise ValueError("empty SSE body")
+
+    choices: list[dict[str, Any]] = []
+    for idx in sorted(choice_states.keys()):
+        state = choice_states[idx]
+        message = state["message"]
+        tool_calls = [state["tool_calls"][k] for k in sorted(state["tool_calls"].keys())]
+        if tool_calls:
+            message["tool_calls"] = tool_calls
+        choices.append(
+            {
+                "index": idx,
+                "message": message,
+                "finish_reason": state["finish_reason"],
+            }
+        )
+
+    return {
+        "id": first_chunk.get("id"),
+        "object": "chat.completion",
+        "created": first_chunk.get("created"),
+        "model": first_chunk.get("model"),
+        "choices": choices,
+    }
 
 
 async def _chat_completion(
@@ -38,6 +121,12 @@ async def _chat_completion(
         try:
             return response.json()
         except ValueError as exc:
+            is_sse = "text/event-stream" in content_type.lower() or body_text.lstrip().startswith("data:")
+            if is_sse:
+                try:
+                    return _parse_sse_chat_completion(body_text)
+                except Exception:
+                    pass
             preview = body_text.strip().replace("\n", " ")[:300]
             raise RuntimeError(
                 "Chat completion returned non-JSON response "
