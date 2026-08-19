@@ -67,5 +67,5 @@ def load_settings() -> Settings:
         default_response_language=_get_env("DEFAULT_RESPONSE_LANGUAGE", "ja"),
         handoff_enabled=_get_env("HANDOFF_ENABLED", "1") == "1",
         handoff_team_id=int(handoff_team_id) if handoff_team_id else None,
-        handoff_message=_get_env("HANDOFF_MESSAGE", "正在为您转接人工客服，请稍候。"),
+        handoff_message=_get_env("HANDOFF_MESSAGE", "担当者におつなぎします。しばらくお待ちください。"),
     )

@@ -180,8 +180,9 @@ async def chatwoot_webhook(request: Request) -> dict[str, Any]:
     system_prompt = load_system_prompt(settings)
     if settings.handoff_enabled:
         system_prompt += (
-            "\n\n转人工规则：如果用户明确要求人工客服、人工介入，或你无法可靠处理请求，"
-            "必须调用 handoff_to_human。调用后不要继续生成普通客服答复。"
+            "\n\n有人対応への引き継ぎルール：ユーザーが人間の担当者やオペレーターとの対応を明確に希望した場合、"
+            "または自分では信頼性をもって対応できない場合は、必ず handoff_to_human を呼び出してください。"
+            "呼び出し後は通常の回答を生成しないでください。"
         )
     llm_messages = [{"role": "system", "content": system_prompt}]
     if settings.rag_enabled:

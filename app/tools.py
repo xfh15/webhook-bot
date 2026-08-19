@@ -40,15 +40,15 @@ def _handoff_spec(handler: ToolHandler) -> ToolSpec:
     return ToolSpec(
         name="handoff_to_human",
         description=(
-            "Transfer the current conversation to human customer support. "
-            "Use this when the customer asks for a human or the request cannot be handled reliably."
+            "現在の会話を人間のカスタマーサポート担当者に引き継ぎます。"
+            "ユーザーが人間による対応を希望した場合、または信頼性をもって対応できない場合に使用してください。"
         ),
         parameters={
             "type": "object",
             "properties": {
                 "reason": {
                     "type": "string",
-                    "description": "Short internal reason for the handoff.",
+                    "description": "引き継ぎの簡潔な内部理由。",
                 }
             },
             "required": [],
