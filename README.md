@@ -102,6 +102,7 @@ python -m app.ingest ./docs
 ## Notes
 
 - The webhook handler ignores non-incoming or private messages to prevent loops.
+- The webhook acknowledges Chatwoot immediately and processes the LLM reply in the background, avoiding Chatwoot's short webhook timeout.
 - When the model calls `handoff_to_human`, the bot sends the handoff message, assigns the conversation to `HANDOFF_TEAM_ID` (or unassigns it when blank), and opens it for human handling.
 - After handoff, non-`pending` conversations are ignored so the webhook bot does not answer human-agent conversations.
 - The bot fetches the last N messages (default 10) to build context.

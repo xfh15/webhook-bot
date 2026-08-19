@@ -5,7 +5,7 @@ import os
 from typing import Any
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
 from .chatwoot import create_message, handoff_conversation, list_messages
 from .config import load_settings
@@ -116,13 +116,65 @@ def _map_history_to_messages(history: list[dict], current_content: str) -> list[
     return messages
 
 
+async def _process_message(
+    account_id: int,
+    conversation_id: int,
+    content: str,
+) -> None:
+    settings = load_settings()
+
+    async def request_handoff(arguments: dict[str, Any]) -> str:
+        await handoff_conversation(
+            settings,
+            account_id,
+            conversation_id,
+            settings.handoff_team_id,
+            settings.handoff_message,
+        )
+        raise HandoffRequested(arguments.get("reason", ""))
+
+    try:
+        history = await list_messages(settings, account_id, conversation_id, settings.history_messages)
+        system_prompt = load_system_prompt(settings)
+        if settings.handoff_enabled:
+            system_prompt += (
+                "\n\n有人対応への引き継ぎルール：ユーザーが人間の担当者やオペレーターとの対応を明確に希望した場合、"
+                "または自分では信頼性をもって対応できない場合は、必ず handoff_to_human を呼び出してください。"
+                "呼び出し後は通常の回答を生成しないでください。"
+            )
+        llm_messages = [{"role": "system", "content": system_prompt}]
+        if settings.rag_enabled:
+            rag = await retrieve_context(settings, content)
+            if rag.context:
+                llm_messages.append({"role": "system", "content": rag.context})
+        llm_messages.extend(_map_history_to_messages(history, content))
+
+        tools = None
+        tool_handlers = None
+        if settings.tools_enabled or settings.handoff_enabled:
+            tools, tool_handlers = load_tools(
+                settings,
+                handoff_handler=request_handoff if settings.handoff_enabled else None,
+                handoff_only=not settings.tools_enabled,
+            )
+
+        reply = await generate_reply(settings, llm_messages, tools=tools, tool_handlers=tool_handlers)
+        await create_message(settings, account_id, conversation_id, reply)
+    except HandoffRequested:
+        logger.info("Conversation handed off to a human: account_id=%s conversation_id=%s", account_id, conversation_id)
+        return
+    except Exception:
+        logger.exception("Failed to process Chatwoot message: account_id=%s conversation_id=%s", account_id, conversation_id)
+        return
+
+
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.post("/webhook/chatwoot")
-async def chatwoot_webhook(request: Request) -> dict[str, Any]:
+async def chatwoot_webhook(request: Request, background_tasks: BackgroundTasks) -> dict[str, Any]:
     payload = await request.json()
     logger.info("Webhook event received: %s", payload.get("event"))
     logger.debug(
@@ -164,47 +216,6 @@ async def chatwoot_webhook(request: Request) -> dict[str, Any]:
     if missing:
         raise HTTPException(status_code=400, detail=f"Missing identifiers: {', '.join(missing)}")
 
-    settings = load_settings()
+    background_tasks.add_task(_process_message, account_id, conversation_id, content)
 
-    async def request_handoff(arguments: dict[str, Any]) -> str:
-        await handoff_conversation(
-            settings,
-            account_id,
-            conversation_id,
-            settings.handoff_team_id,
-            settings.handoff_message,
-        )
-        raise HandoffRequested(arguments.get("reason", ""))
-
-    history = await list_messages(settings, account_id, conversation_id, settings.history_messages)
-    system_prompt = load_system_prompt(settings)
-    if settings.handoff_enabled:
-        system_prompt += (
-            "\n\n有人対応への引き継ぎルール：ユーザーが人間の担当者やオペレーターとの対応を明確に希望した場合、"
-            "または自分では信頼性をもって対応できない場合は、必ず handoff_to_human を呼び出してください。"
-            "呼び出し後は通常の回答を生成しないでください。"
-        )
-    llm_messages = [{"role": "system", "content": system_prompt}]
-    if settings.rag_enabled:
-        rag = await retrieve_context(settings, content)
-        if rag.context:
-            llm_messages.append({"role": "system", "content": rag.context})
-    llm_messages.extend(_map_history_to_messages(history, content))
-
-    tools = None
-    tool_handlers = None
-    if settings.tools_enabled or settings.handoff_enabled:
-        tools, tool_handlers = load_tools(
-            settings,
-            handoff_handler=request_handoff if settings.handoff_enabled else None,
-            handoff_only=not settings.tools_enabled,
-        )
-
-    try:
-        reply = await generate_reply(settings, llm_messages, tools=tools, tool_handlers=tool_handlers)
-    except HandoffRequested:
-        return {"ok": True, "handoff": True}
-
-    await create_message(settings, account_id, conversation_id, reply)
-
-    return {"ok": True}
+    return {"ok": True, "accepted": True}
