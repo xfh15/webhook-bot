@@ -25,6 +25,9 @@ Key `.env` settings:
 - `OPENAI_BASE_URL`: Base URL for the provider
 - `OPENAI_MODEL`: Chat completion model
 - `OPENAI_EMBED_MODEL`: Embedding model (used by RAG)
+- `HANDOFF_ENABLED`: Expose the human-handoff tool to the model (default `1`)
+- `HANDOFF_TEAM_ID`: Optional Chatwoot team ID to receive handoffs
+- `HANDOFF_MESSAGE`: Customer-facing message sent before handoff
 
 ## Webhook
 
@@ -99,5 +102,7 @@ python -m app.ingest ./docs
 ## Notes
 
 - The webhook handler ignores non-incoming or private messages to prevent loops.
+- When the model calls `handoff_to_human`, the bot sends the handoff message, assigns the conversation to `HANDOFF_TEAM_ID` (or unassigns it when blank), and opens it for human handling.
+- After handoff, non-`pending` conversations are ignored so the webhook bot does not answer human-agent conversations.
 - The bot fetches the last N messages (default 10) to build context.
 - Embeddings use `OPENAI_EMBED_MODEL`.

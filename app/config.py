@@ -2,7 +2,7 @@ import os
 from dataclasses import dataclass
 
 
-def _get_env(name: str, default: str | None = None, required: bool = False) -> str:
+def _get_env(name: str, default: str | None = None, required: bool = False) -> str | None:
     value = os.getenv(name, default)
     if required and (value is None or value == ""):
         raise RuntimeError(f"Missing required env var: {name}")
@@ -32,9 +32,14 @@ class Settings:
     max_tool_rounds: int
     knowledge_path: str | None
     default_response_language: str
+    handoff_enabled: bool
+    handoff_team_id: int | None
+    handoff_message: str
 
 
 def load_settings() -> Settings:
+    handoff_team_id = _get_env("HANDOFF_TEAM_ID")
+
     return Settings(
         chatwoot_base_url=_get_env("CHATWOOT_BASE_URL", "http://localhost:3000", required=True),
         chatwoot_api_token=_get_env("CHATWOOT_API_TOKEN", required=True),
@@ -60,4 +65,7 @@ def load_settings() -> Settings:
         max_tool_rounds=int(_get_env("MAX_TOOL_ROUNDS", "2")),
         knowledge_path=_get_env("KNOWLEDGE_PATH", "knowledge.md"),
         default_response_language=_get_env("DEFAULT_RESPONSE_LANGUAGE", "ja"),
+        handoff_enabled=_get_env("HANDOFF_ENABLED", "1") == "1",
+        handoff_team_id=int(handoff_team_id) if handoff_team_id else None,
+        handoff_message=_get_env("HANDOFF_MESSAGE", "正在为您转接人工客服，请稍候。"),
     )

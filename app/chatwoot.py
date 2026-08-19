@@ -51,3 +51,49 @@ async def create_message(
     async with httpx.AsyncClient(base_url=settings.chatwoot_base_url, timeout=timeout) as client:
         response = await client.post(url, headers=_build_headers(settings), json=payload)
         response.raise_for_status()
+
+
+async def assign_conversation(
+    settings: Settings,
+    account_id: int,
+    conversation_id: int,
+    team_id: int | None = None,
+) -> None:
+    url = f"/api/v1/accounts/{account_id}/conversations/{conversation_id}/assignments"
+    payload = {"team_id": team_id} if team_id is not None else {"assignee_id": None}
+    timeout = httpx.Timeout(settings.request_timeout_seconds)
+
+    async with httpx.AsyncClient(base_url=settings.chatwoot_base_url, timeout=timeout) as client:
+        response = await client.post(url, headers=_build_headers(settings), json=payload)
+        response.raise_for_status()
+
+
+async def open_conversation_from_bot(
+    settings: Settings,
+    account_id: int,
+    conversation_id: int,
+) -> None:
+    url = f"/api/v1/accounts/{account_id}/conversations/{conversation_id}/toggle_status"
+    timeout = httpx.Timeout(settings.request_timeout_seconds)
+
+    async with httpx.AsyncClient(base_url=settings.chatwoot_base_url, timeout=timeout) as client:
+        response = await client.post(
+            url,
+            headers=_build_headers(settings),
+            json={"status": "open"},
+        )
+        response.raise_for_status()
+
+
+async def handoff_conversation(
+    settings: Settings,
+    account_id: int,
+    conversation_id: int,
+    team_id: int | None,
+    message: str,
+) -> None:
+    await create_message(settings, account_id, conversation_id, message)
+    await assign_conversation(settings, account_id, conversation_id)
+    if team_id is not None:
+        await assign_conversation(settings, account_id, conversation_id, team_id)
+    await open_conversation_from_bot(settings, account_id, conversation_id)

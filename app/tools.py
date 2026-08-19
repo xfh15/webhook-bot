@@ -36,6 +36,27 @@ def _builtin_specs() -> dict[str, ToolSpec]:
     return {time_tool.name: time_tool}
 
 
+def _handoff_spec(handler: ToolHandler) -> ToolSpec:
+    return ToolSpec(
+        name="handoff_to_human",
+        description=(
+            "Transfer the current conversation to human customer support. "
+            "Use this when the customer asks for a human or the request cannot be handled reliably."
+        ),
+        parameters={
+            "type": "object",
+            "properties": {
+                "reason": {
+                    "type": "string",
+                    "description": "Short internal reason for the handoff.",
+                }
+            },
+            "required": [],
+        },
+        handler=handler,
+    )
+
+
 def _load_custom_specs(path: Path) -> list[ToolSpec]:
     if not path.exists() or not path.is_file():
         return []
@@ -64,13 +85,21 @@ def _load_custom_specs(path: Path) -> list[ToolSpec]:
     return specs
 
 
-def load_tools(settings: Settings) -> tuple[list[dict[str, Any]], dict[str, ToolHandler]]:
+def load_tools(
+    settings: Settings,
+    handoff_handler: ToolHandler | None = None,
+    handoff_only: bool = False,
+) -> tuple[list[dict[str, Any]], dict[str, ToolHandler]]:
     builtin = _builtin_specs()
-    specs = list(builtin.values())
+    specs = [] if handoff_only else list(builtin.values())
 
-    custom = _load_custom_specs(Path(settings.tools_config_path))
+    custom = _load_custom_specs(Path(settings.tools_config_path)) if not handoff_only else []
     if custom:
         specs = custom
+
+    if handoff_handler:
+        specs = [spec for spec in specs if spec.name != "handoff_to_human"]
+        specs.append(_handoff_spec(handoff_handler))
 
     tools = []
     handlers: dict[str, ToolHandler] = {}
